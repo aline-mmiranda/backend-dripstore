@@ -1,0 +1,672 @@
+openapi: 3.0.3
+info:
+  title: DRIP Store API
+  description: >
+    API REST do projeto DRIP Store (Digital College / Geração Tech 4.0).
+    Rotas POST, PUT e DELETE (exceto cadastro de usuário e geração do token)
+    exigem o cabeçalho "Authorization: Bearer <jwt>".
+    Sem o cabeçalho a resposta é 400; com token inválido ou expirado, 401.
+  version: 1.0.0
+servers:
+  - url: http://localhost:3000/v1
+    description: Servidor local
+tags:
+  - name: Autenticação
+  - name: Usuários
+  - name: Categorias
+  - name: Produtos
+
+paths:
+  /user/token:
+    post:
+      tags: [Autenticação]
+      summary: Gera o token JWT
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Login"
+      responses:
+        "200":
+          description: Token gerado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Token"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
+    post:
+      tags: [Usuários]
+      summary: Cadastra um usuário
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserCreate"
+      responses:
+        "201":
+          description: Usuário criado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
+  /user/{id}:
+    parameters:
+      - $ref: "#/components/parameters/Id"
+    get:
+      tags: [Usuários]
+      summary: Consulta um usuário pelo id
+      responses:
+        "200":
+          description: Usuário encontrado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      tags: [Usuários]
+      summary: Atualiza um usuário
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserUpdate"
+      responses:
+        "204":
+          $ref: "#/components/responses/NoContent"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      tags: [Usuários]
+      summary: Exclui um usuário
+      security:
+        - bearerAuth: []
+      responses:
+        "204":
+          $ref: "#/components/responses/NoContent"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /category/search:
+    get:
+      tags: [Categorias]
+      summary: Lista categorias com paginação e filtros
+      parameters:
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Page"
+        - name: fields
+          in: query
+          description: Campos retornados, separados por vírgula (id, name, slug, use_in_menu).
+          schema:
+            type: string
+          example: name,slug
+        - name: use_in_menu
+          in: query
+          description: Filtra pelas categorias que podem aparecer no menu.
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: Lista paginada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CategoryList"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
+  /category:
+    post:
+      tags: [Categorias]
+      summary: Cria uma categoria
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CategoryInput"
+      responses:
+        "201":
+          description: Categoria criada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Category"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /category/{id}:
+    parameters:
+      - $ref: "#/components/parameters/Id"
+    get:
+      tags: [Categorias]
+      summary: Consulta uma categoria pelo id
+      responses:
+        "200":
+          description: Categoria encontrada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Category"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      tags: [Categorias]
+      summary: Atualiza uma categoria
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CategoryInput"
+      responses:
+        "204":
+          $ref: "#/components/responses/NoContent"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      tags: [Categorias]
+      summary: Exclui uma categoria
+      security:
+        - bearerAuth: []
+      responses:
+        "204":
+          $ref: "#/components/responses/NoContent"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /product/search:
+    get:
+      tags: [Produtos]
+      summary: Lista produtos com paginação e filtros
+      description: >
+        Filtros diferentes se combinam com E; dentro de category_ids e option[ID], vale OU.
+        Para filtrar por opção, use o parâmetro option[ID]=valor1,valor2,
+        trocando ID pelo id da opção (ex.: option[45]=GG,PP).
+      parameters:
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Page"
+        - name: fields
+          in: query
+          description: >
+            Campos retornados, separados por vírgula (id, enabled, name, slug, stock,
+            description, price, price_with_discount, category_ids, images, options).
+          schema:
+            type: string
+          example: name,images,price
+        - name: match
+          in: query
+          description: Termo que deve aparecer no nome ou na descrição.
+          schema:
+            type: string
+          example: Tênis
+        - name: category_ids
+          in: query
+          description: Ids de categorias separados por vírgula.
+          schema:
+            type: string
+          example: 15,24
+        - name: price-range
+          in: query
+          description: Faixa de preço no formato min-max.
+          schema:
+            type: string
+          example: 100-200
+        - name: option[1]
+          in: query
+          description: Valores de uma opção separados por vírgula (troque 1 pelo id da opção).
+          schema:
+            type: string
+          example: GG,PP
+      responses:
+        "200":
+          description: Lista paginada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProductList"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
+  /product:
+    post:
+      tags: [Produtos]
+      summary: Cria um produto (com categorias, imagens e opções)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProductInput"
+      responses:
+        "201":
+          description: Produto criado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /product/{id}:
+    parameters:
+      - $ref: "#/components/parameters/Id"
+    get:
+      tags: [Produtos]
+      summary: Consulta um produto pelo id
+      responses:
+        "200":
+          description: Produto encontrado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      tags: [Produtos]
+      summary: Atualiza um produto
+      description: >
+        category_ids, images e options só são alterados se enviados.
+        category_ids substitui o conjunto atual. Em images e options, um item sem id
+        cria, um item com id e deleted=true exclui, e um item com id e outros campos
+        atualiza apenas o que foi enviado.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProductInput"
+      responses:
+        "204":
+          $ref: "#/components/responses/NoContent"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      tags: [Produtos]
+      summary: Exclui um produto (junto com imagens, opções e vínculos)
+      security:
+        - bearerAuth: []
+      responses:
+        "204":
+          $ref: "#/components/responses/NoContent"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    Id:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+      example: 1
+    Limit:
+      name: limit
+      in: query
+      description: Itens por página. Use -1 para buscar todos.
+      schema:
+        type: integer
+        default: 12
+    Page:
+      name: page
+      in: query
+      description: Página (sem efeito quando limit=-1).
+      schema:
+        type: integer
+        default: 1
+
+  responses:
+    NoContent:
+      description: Sucesso, sem corpo
+    BadRequest:
+      description: Dados da requisição incorretos, ou cabeçalho Authorization ausente
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Unauthorized:
+      description: Token inválido ou expirado
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    NotFound:
+      description: Recurso não encontrado
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        message:
+          type: string
+
+    Login:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          example: user@mail.com
+        password:
+          type: string
+          example: 123@123
+
+    Token:
+      type: object
+      properties:
+        token:
+          type: string
+
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        firstname:
+          type: string
+          example: Maria
+        surname:
+          type: string
+          example: Silva
+        email:
+          type: string
+          example: maria@mail.com
+
+    UserCreate:
+      type: object
+      required: [firstname, surname, email, password, confirmPassword]
+      properties:
+        firstname:
+          type: string
+        surname:
+          type: string
+        email:
+          type: string
+        password:
+          type: string
+        confirmPassword:
+          type: string
+
+    UserUpdate:
+      type: object
+      required: [firstname, surname, email]
+      properties:
+        firstname:
+          type: string
+        surname:
+          type: string
+        email:
+          type: string
+
+    Category:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        name:
+          type: string
+          example: Shoes
+        slug:
+          type: string
+          example: shoes
+        use_in_menu:
+          type: boolean
+          example: true
+
+    CategoryInput:
+      type: object
+      required: [name, slug]
+      properties:
+        name:
+          type: string
+          example: Shoes
+        slug:
+          type: string
+          example: shoes
+        use_in_menu:
+          type: boolean
+          default: false
+
+    CategoryList:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Category"
+        total:
+          type: integer
+          example: 10
+        limit:
+          type: integer
+          example: 12
+        page:
+          type: integer
+          example: 1
+
+    ProductImage:
+      type: object
+      properties:
+        id:
+          type: integer
+        content:
+          type: string
+          description: URL da imagem
+          example: http://localhost:3000/media/product-1/imagem.png
+
+    ProductOption:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+          example: Tamanho
+        shape:
+          type: string
+          enum: [square, circle]
+        radius:
+          type: integer
+          example: 4
+        type:
+          type: string
+          enum: [text, color]
+        values:
+          type: array
+          items:
+            type: string
+          example: [PP, M, GG]
+
+    Product:
+      type: object
+      properties:
+        id:
+          type: integer
+        enabled:
+          type: boolean
+        name:
+          type: string
+        slug:
+          type: string
+        stock:
+          type: integer
+        description:
+          type: string
+        price:
+          type: number
+          example: 119.9
+        price_with_discount:
+          type: number
+          example: 99.9
+        category_ids:
+          type: array
+          items:
+            type: integer
+        images:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProductImage"
+        options:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProductOption"
+
+    ProductList:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Product"
+        total:
+          type: integer
+          example: 120
+        limit:
+          type: integer
+          example: 12
+        page:
+          type: integer
+          example: 1
+
+    ProductImageInput:
+      type: object
+      description: Sem id cria; com id e deleted=true exclui; com id e content em base64 troca o arquivo.
+      properties:
+        id:
+          type: integer
+        deleted:
+          type: boolean
+        type:
+          type: string
+          enum: [image/png, image/jpg, image/jpeg]
+        content:
+          type: string
+          description: Imagem em base64
+
+    ProductOptionInput:
+      type: object
+      description: Sem id cria (title e values obrigatórios); com id e deleted=true exclui; com id e outros campos atualiza.
+      properties:
+        id:
+          type: integer
+        deleted:
+          type: boolean
+        title:
+          type: string
+          example: Tamanho
+        shape:
+          type: string
+          enum: [square, circle]
+        radius:
+          oneOf:
+            - type: integer
+            - type: string
+          example: 4px
+        type:
+          type: string
+          enum: [text, color]
+        values:
+          type: array
+          items:
+            type: string
+          example: [PP, M, GG]
+
+    ProductInput:
+      type: object
+      required: [name, slug, price, price_with_discount]
+      properties:
+        enabled:
+          type: boolean
+          default: false
+        name:
+          type: string
+          example: Camiseta
+        slug:
+          type: string
+          example: camiseta
+        stock:
+          type: integer
+          minimum: 0
+          example: 10
+        description:
+          type: string
+        price:
+          type: number
+          example: 119.9
+        price_with_discount:
+          type: number
+          example: 99.9
+        category_ids:
+          type: array
+          items:
+            type: integer
+          example: [1, 15]
+        images:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProductImageInput"
+        options:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProductOptionInput"
