@@ -37,6 +37,7 @@ paths:
         "400":
           $ref: "#/components/responses/BadRequest"
 
+  /user:
     post:
       tags: [Usuários]
       summary: Cadastra um usuário
